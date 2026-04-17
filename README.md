@@ -5,7 +5,7 @@
 | File | Purpose |
 |------|---------|
 | `run_pipeline.py` | Master entrypoint — runs both collectors |
-| `sec_edgar_collector.py` | Pulls 10-K, 10-Q, 8-K filings from SEC EDGAR |
+| `sec_edgar_collector.py` | Pulls 10-K, 10-Q filings from SEC EDGAR |
 | `transcript_scraper.py` | Scrapes earnings call transcripts (Motley Fool / Kaggle) |
 | `requirements.txt` | Python dependencies |
 
@@ -16,7 +16,6 @@ data/
   filings/
     AAPL_10-K_2024-11-01.json
     AAPL_10-Q_2024-08-02.json
-    MSFT_8-K_2024-10-30.json
     _index.json               ← metadata only, no raw text
   transcripts/
     AAPL_EARNINGS_CALL_2024-11-01.json
@@ -51,7 +50,7 @@ Every saved file (filing or transcript) follows this schema:
 ```bash
 pip install -r requirements.txt
 
-# Basic run — AAPL, MSFT, NVDA; 2 of each form type
+# Basic run — AAPL, MSFT, NVDA, JPM; 2 of each form type
 python run_pipeline.py
 
 # Custom tickers and more filings
@@ -85,10 +84,4 @@ python run_pipeline.py --skip-sec
 - **Kaggle dataset** (`--kaggle-csv`) is the most reliable bulk source:
   https://www.kaggle.com/datasets/tpotterer/motley-fool-scraped-earnings-call-transcripts
 
-## Next Steps (Week 2)
 
-Hand the `data/` directory to Pranav's preprocessing module:
-- Load JSON records
-- Run tokenization, stop-word removal, lemmatization (spaCy)
-- Extract multi-word financial phrases ("revenue growth", "margin pressure")
-- Produce a clean, structured dataset ready for Nick's signal extraction engine

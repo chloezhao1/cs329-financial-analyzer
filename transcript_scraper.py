@@ -191,49 +191,53 @@ def scrape_seeking_alpha_transcripts(ticker: str) -> list[dict]:
 
 # ─── Kaggle Dataset Loader (offline fallback) ────────────────────────────────
 
-def load_kaggle_transcripts(csv_path: str, tickers: list[str] = None) -> list[dict]:
-    """
-    Load transcripts from the Kaggle Motley Fool earnings call dataset.
-    CSV columns expected: ticker, company_name, date, transcript (or similar).
-    
-    Dataset: https://www.kaggle.com/datasets/tpotterer/motley-fool-scraped-earnings-call-transcripts
-    """
-    import csv
+def load_kaggle_transcripts(pkl_path: str, tickers: list[str] = None) -> list[dict]:
+    import pandas as pd  # Import here to avoid global dependency if not needed
 
-    if not os.path.exists(csv_path):
-        print(f"[!] Kaggle CSV not found at {csv_path}")
-        print("    Download from: https://www.kaggle.com/datasets/tpotterer/motley-fool-scraped-earnings-call-transcripts")
+    if not os.path.exists(pkl_path):
+        print(f"[!] Kaggle Pickle file not found at {pkl_path}")
+        return []
+
+    # Load the DataFrame directly from the pickle file
+    try:
+        df = pd.read_pickle(pkl_path)
+    except Exception as e:
+        print(f"[!] Error reading pickle file: {e}")
         return []
 
     records = []
     tickers_upper = [t.upper() for t in tickers] if tickers else None
 
-    with open(csv_path, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            ticker = row.get("ticker", row.get("symbol", "")).upper()
-            if tickers_upper and ticker not in tickers_upper:
-                continue
+    # Iterate through the DataFrame rows using iterrows
+    for _, row in df.iterrows():
+        # Ensure ticker is a string and handle potential column name variations
+        ticker = str(row.get("ticker", row.get("symbol", ""))).upper()
 
-            text = row.get("transcript", row.get("text", row.get("content", "")))
-            date = row.get("date", row.get("filing_date", ""))
+        if tickers_upper and ticker not in tickers_upper:
+            continue
 
-            record = {
-                "ticker": ticker,
-                "company_name": row.get("company_name", row.get("company", "")),
-                "form_type": "EARNINGS_CALL",
-                "filing_date": _normalize_date(date),
-                "quarter": row.get("quarter", ""),
-                "year": row.get("year", ""),
-                "source": "Kaggle / Motley Fool",
-                "raw_text": text,
-                "text_length": len(text),
-                "collected_at": datetime.utcnow().isoformat() + "Z",
-            }
-            save_transcript_record(record)
-            records.append(record)
+        # Extract text and date based on common Kaggle dataset keys
+        text = row.get("transcript", row.get("text", ""))
+        date = str(row.get("date", row.get("filing_date", "")))
 
-    print(f"[✓] Loaded {len(records)} transcripts from Kaggle dataset")
+        record = {
+            "ticker": ticker,
+            "company_name": row.get("company_name", row.get("company", "")),
+            "form_type": "EARNINGS_CALL",
+            "filing_date": _normalize_date(date),
+            "quarter": str(row.get("quarter", "")),
+            "year": str(row.get("year", "")),
+            "source": "Kaggle / Motley Fool",
+            "raw_text": text,
+            "text_length": len(text) if isinstance(text, str) else 0,
+            "collected_at": datetime.utcnow().isoformat() + "Z",
+        }
+
+        # This saves individual JSON files to data/transcripts/ for Pranav
+        save_transcript_record(record)
+        records.append(record)
+
+    print(f"[✓] Successfully loaded {len(records)} transcripts from .pkl")
     return records
 
 
@@ -286,7 +290,7 @@ def save_transcript_record(record: dict):
 def collect_transcripts(
     tickers: list[str],
     max_per_ticker: int = 4,
-    kaggle_csv_path: str = None,
+    kaggle_pkl_path: str = None,
 ):
     print("\n" + "="*60)
     print("  Earnings Call Transcript Collector — CS329")
@@ -295,8 +299,8 @@ def collect_transcripts(
     all_records = []
 
     # Option 1: Kaggle dataset (recommended for bulk / offline)
-    if kaggle_csv_path:
-        records = load_kaggle_transcripts(kaggle_csv_path, tickers)
+    if kaggle_pkl_path:
+        records = load_kaggle_transcripts(kaggle_pkl_path, tickers)
         all_records.extend(records)
 
     # Option 2: Live Motley Fool scraping
@@ -322,5 +326,4 @@ if __name__ == "__main__":
     collect_transcripts(
         tickers=TICKERS,
         max_per_ticker=4,
-        # kaggle_csv_path="path/to/kaggle_transcripts.csv",  # uncomment if using Kaggle
     )

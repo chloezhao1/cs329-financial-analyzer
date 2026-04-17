@@ -25,7 +25,7 @@ Output schema (each record saved as JSON):
 
 Usage:
     python run_pipeline.py
-    python run_pipeline.py --tickers AAPL MSFT NVDA --forms 10-K 10-Q --max 2
+    python run_pipeline.py --tickers AAPL MSFT NVDA JPM --forms 10-K 10-Q --max 2
 """
 
 import argparse
@@ -41,7 +41,7 @@ def run_full_pipeline(
     tickers: list[str],
     form_types: list[str],
     max_per_type: int,
-    kaggle_csv: str = None,
+    kaggle_pkl: str = None,
     skip_sec: bool = False,
     skip_transcripts: bool = False,
 ):
@@ -73,7 +73,7 @@ def run_full_pipeline(
         transcript_records = collect_transcripts(
             tickers=tickers,
             max_per_ticker=max_per_type,
-            kaggle_csv_path=kaggle_csv,
+            kaggle_pkl_path=kaggle_pkl,
         )
         all_records.extend(transcript_records)
     else:
@@ -123,14 +123,14 @@ def run_full_pipeline(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="CS329 Financial Data Ingestion Pipeline")
-    parser.add_argument("--tickers", nargs="+", default=["AAPL", "MSFT", "NVDA"],
+    parser.add_argument("--tickers", nargs="+", default=["AAPL", "MSFT", "NVDA", "JPM"],
                         help="Stock tickers to collect")
     parser.add_argument("--forms", nargs="+", default=["10-K", "10-Q"],
                         help="SEC form types (10-K, 10-Q)")
     parser.add_argument("--max", type=int, default=2,
                         help="Max filings per form type per ticker")
-    parser.add_argument("--kaggle-csv", type=str, default=None,
-                        help="Path to Kaggle transcripts CSV (skips Selenium scraping)")
+    parser.add_argument("--kaggle-pkl", type=str, default=None,
+                        help="Path to Kaggle transcripts .pkl file")
     parser.add_argument("--skip-sec", action="store_true",
                         help="Skip SEC EDGAR collection")
     parser.add_argument("--skip-transcripts", action="store_true",
@@ -142,7 +142,7 @@ if __name__ == "__main__":
         tickers=args.tickers,
         form_types=args.forms,
         max_per_type=args.max,
-        kaggle_csv=args.kaggle_csv,
+        kaggle_pkl=args.kaggle_pkl,
         skip_sec=args.skip_sec,
         skip_transcripts=args.skip_transcripts,
     )
