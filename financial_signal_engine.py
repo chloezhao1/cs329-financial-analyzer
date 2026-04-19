@@ -370,6 +370,7 @@ class SignalEngine:
             "company_name":    record.get("company_name", "Unknown"),
             "form_type":       record.get("form_type", "UNKNOWN"),
             "filing_date":     record.get("filing_date", "Unknown"),
+            "source":          record.get("source", "SEC EDGAR"),
             "method": {
                 "type":                "loughran_mcdonald_lexicon",
                 "engine_version":      ENGINE_VERSION,
@@ -438,6 +439,24 @@ class SignalEngine:
 # 5. Batch runner
 # ---------------------------------------------------------------------------
 
+def infer_data_source(base_dir: Path) -> str:
+    """
+    Tell the frontend which data stage is available, in priority order:
+      'data/processed'  -> preprocessing has run, signals can be computed
+      'pipeline_output' -> scraping has run but preprocessing has not
+      'demo_data'       -> nothing scraped yet; fall back to bundled samples
+    """
+    processed_dir = base_dir / "data" / "processed"
+    if processed_dir.exists() and list(processed_dir.glob("*.processed.json")):
+        return "data/processed"
+    filings_dir = base_dir / "data" / "filings"
+    transcripts_dir = base_dir / "data" / "transcripts"
+    if (filings_dir.exists() and list(filings_dir.glob("*.json"))) or (
+        transcripts_dir.exists() and list(transcripts_dir.glob("*.json"))
+    ):
+        return "pipeline_output"
+    return "demo_data"
+
 
 def load_records(base_dir: Path) -> list[dict]:
     processed_dir = base_dir / "data" / "processed"
@@ -459,10 +478,29 @@ def load_records(base_dir: Path) -> list[dict]:
 
 def analyze_records(
     records: list[dict],
-    engine: SignalEngine,
+    engine: "SignalEngine | None" = None,
     applier: "BaselineApplier | None" = None,
 ) -> list[dict]:
-    """Score records, optionally attaching sector-relative z-scores."""
+    """
+    Score records, optionally attaching sector-relative z-scores.
+
+    If `engine` is not provided, one is lazily created using the default
+    LM dictionary path. This keeps backwards compatibility with callers
+    like frontend_app.py that call analyze_records(records) directly.
+
+    If `applier` is not provided and the baseline file exists, one is
+    lazily created. This ensures the frontend gets z-scores too.
+    """
+    if engine is None:
+        lm = LMDictionary.from_csv(Path("data/lexicons/loughran_mcdonald.csv"))
+        engine = SignalEngine(lm)
+    if applier is None and _HAS_BASELINE:
+        try:
+            applier = BaselineApplier()
+        except Exception as e:
+            logger.warning("Could not load baseline automatically: %s", e)
+            applier = None
+
     analyses = [engine.analyze_record(r) for r in records]
     if applier is not None:
         analyses = applier.apply_all(analyses)

@@ -73,28 +73,32 @@ def _sentence_histogram_frame(sentence_signals: list[dict]) -> pd.DataFrame:
 
 def _phrase_table(analysis: dict) -> pd.DataFrame:
     rows = []
-    for item in analysis["top_phrases"][:12]:
-        rows.append(
-            {
-                "Dimension": item["dimension"],
-                "Phrase": item["phrase"],
-                "Score": round(item["score"], 2),
-                "Matches": item["count"],
-                "Example": item["evidence"][0] if item["evidence"] else "",
-            }
-        )
+    for dim, key in [
+        ("Growth", "top_growth_phrases"),
+        ("Risk", "top_risk_phrases"),
+        ("Cost Pressure", "top_cost_phrases"),
+    ]:
+        for item in analysis.get(key, [])[:4]:
+            rows.append(
+                {
+                    "Dimension": dim,
+                    "Term": item["term"],
+                    "Source": item["source"],
+                    "Matches": item["count"],
+                }
+            )
     return pd.DataFrame(rows)
 
 
 def _sentence_table(analysis: dict) -> pd.DataFrame:
     rows = []
-    for sentence in analysis["sentence_signals"][:20]:
+    for sentence in analysis["top_sentences"][:20]:
         rows.append(
             {
                 "Section": sentence["section"],
-                "Growth": round(sentence["growth_score"], 2),
-                "Risk": round(sentence["risk_score"], 2),
-                "Cost": round(sentence["cost_pressure_score"], 2),
+                "Growth": round(sentence["growth"], 2),
+                "Risk": round(sentence["risk"], 2),
+                "Cost": round(sentence["cost_pressure"], 2),
                 "Net": round(sentence["net_score"], 2),
                 "Negated": sentence["has_negation"],
                 "Hedged": sentence["has_hedge"],
@@ -234,25 +238,26 @@ def _render_metric_row(primary: dict) -> None:
         net_label = "Negative balance"
         net_color = "#b42318"
 
-    metric_columns = st.columns(4)
+    z = primary.get("zscores") or {}
+    z_label = z.get("reference_label") if z else None
+
     cards = [
-        _metric_card("Growth", primary["scores"]["growth"], growth_label, growth_color),
-        _metric_card("Risk", primary["scores"]["risk"], risk_label, risk_color),
-        _metric_card(
-            "Cost Pressure",
-            primary["scores"]["cost_pressure"],
-            cost_label,
-            cost_color,
-        ),
-        _metric_card(
-            "Net Operating Signal",
-            primary["scores"]["net_operating_signal"],
-            net_label,
-            net_color,
-        ),
+        (_metric_card("Growth", primary["scores"]["growth"], growth_label, growth_color), z.get("growth")),
+        (_metric_card("Risk", primary["scores"]["risk"], risk_label, risk_color), z.get("risk")),
+        (_metric_card("Cost Pressure", primary["scores"]["cost_pressure"], cost_label, cost_color), None),
+        (_metric_card("Net Operating Signal", primary["scores"]["net_operating_signal"], net_label, net_color), z.get("net_operating_signal")),
     ]
-    for column, card in zip(metric_columns, cards):
+    for column, (card, z_val) in zip(st.columns(4), cards):
         column.markdown(card, unsafe_allow_html=True)
+        if z_val is not None:
+            z_color = "#1f8f5f" if z_val >= 0 else "#b42318"
+            ref = f" vs {z_label}" if z_label else ""
+            column.markdown(
+                f'<div style="font-size:0.8rem;color:#475467;margin-top:6px;padding-left:2px;">'
+                f'z&#8209;score: <b style="color:{z_color};">{z_val:+.2f}</b>'
+                f'<span style="opacity:0.7;">{ref}</span></div>',
+                unsafe_allow_html=True,
+            )
 
 
 def _render_key_takeaways(primary: dict) -> None:
@@ -260,7 +265,12 @@ def _render_key_takeaways(primary: dict) -> None:
         ["growth", "risk", "cost_pressure"],
         key=lambda key: abs(primary["scores"][key]),
     )
-    dominant_phrase = primary["top_phrases"][0]["phrase"] if primary["top_phrases"] else "no strong phrase match"
+    all_phrases = (
+        primary.get("top_growth_phrases", [])
+        + primary.get("top_risk_phrases", [])
+        + primary.get("top_cost_phrases", [])
+    )
+    dominant_phrase = all_phrases[0]["term"] if all_phrases else "no strong phrase match"
     st.markdown(
         f"""
         <div style="
@@ -400,12 +410,12 @@ def main() -> None:
     primary = selected_analyses[0]
 
     _render_hero(primary)
-    if "model" in primary:
+    if "method" in primary:
+        m = primary["method"]
         st.caption(
-            f"Engine: `{primary['model']['type']}` with hidden layers "
-            f"`{primary['model']['hidden_layer_sizes']}`"
+            f"Engine: `{m['type']}` v{m['engine_version']} — "
+            f"{m['lm_growth_words']} growth / {m['lm_risk_words']} risk words loaded"
         )
-        st.caption(f"Lexicon source: `{primary['model'].get('lexicon_source', 'unknown')}`")
 
     _render_metric_row(primary)
     _render_key_takeaways(primary)
@@ -431,7 +441,7 @@ def main() -> None:
     with histogram_col:
         st.markdown("### Sentence-Level Distribution")
         st.caption("How net signal is distributed across matched sentences in the selected report.")
-        histogram_frame = _sentence_histogram_frame(primary["sentence_signals"]).set_index("range")
+        histogram_frame = _sentence_histogram_frame(primary["top_sentences"]).set_index("range")
         st.bar_chart(histogram_frame)
 
     st.markdown("### Top Contributing Phrases")
@@ -442,21 +452,26 @@ def main() -> None:
     st.caption("Sentence-by-sentence breakdown of where the major output signals came from.")
     st.dataframe(_sentence_table(primary), use_container_width=True, hide_index=True)
 
-    with st.expander("Model internals for the selected report"):
+    with st.expander("Lexicon evidence for the selected report"):
         st.write(
-            "This engine uses Loughran-McDonald dictionary category matches as input, "
-            "then maps them through two hidden layers before producing separate "
-            "growth, risk, and cost-pressure outputs."
+            "This engine uses Loughran-McDonald dictionary category matches and curated "
+            "multi-word phrases to produce sentence-level growth, risk, and cost-pressure scores. "
+            "The table below shows the top 10 sentences by signal strength with their lexicon evidence."
         )
-        if primary["sentence_signals"]:
+        if primary["top_sentences"]:
             internal_rows = []
-            for sentence in primary["sentence_signals"][:10]:
+            for sentence in primary["top_sentences"][:10]:
+                text = sentence["text"]
                 internal_rows.append(
                     {
-                        "Sentence": sentence["text"],
-                        "Hidden Layer 1": sentence["hidden_layer_1"],
-                        "Hidden Layer 2": sentence["hidden_layer_2"],
-                        "Output Vector": sentence["output_vector"],
+                        "Sentence": text[:100] + "…" if len(text) > 100 else text,
+                        "LM Growth": ", ".join(sentence["lm_growth_hits"]),
+                        "LM Risk": ", ".join(sentence["lm_risk_hits"]),
+                        "Phrases": ", ".join(
+                            sentence["phrase_growth_hits"]
+                            + sentence["phrase_risk_hits"]
+                            + sentence["phrase_cost_hits"]
+                        ),
                     }
                 )
             st.dataframe(pd.DataFrame(internal_rows), use_container_width=True, hide_index=True)

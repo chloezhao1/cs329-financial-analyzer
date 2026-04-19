@@ -35,6 +35,7 @@ from datetime import datetime, date
 
 from sec_edgar_collector import collect_sec_filings
 from transcript_scraper import collect_transcripts
+from text_preprocessor import PreprocessingPipeline
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -127,7 +128,43 @@ def run_full_pipeline(
     print(f"\n  Master index → {master_index_path}")
     print("="*60 + "\n")
 
-    return all_records
+    # ── Step 3: Preprocessing (with disk cache) ────────────────────
+    processed_dir = BASE_DIR / "data" / "processed"
+    processed_dir.mkdir(parents=True, exist_ok=True)
+
+    print("[STEP 3] Preprocessing collected records (cache: data/processed/)...")
+    preprocessor = None
+    processed_records = []
+    cached = 0
+
+    for record in all_records:
+        ticker = record.get("ticker", "UNK")
+        form = record.get("form_type", "UNK").replace("/", "-")
+        date_str = record.get("filing_date", "unknown")
+        cache_path = processed_dir / f"{ticker}_{form}_{date_str}.processed.json"
+
+        if cache_path.exists():
+            try:
+                processed_records.append(json.loads(cache_path.read_text(encoding="utf-8")))
+                cached += 1
+                continue
+            except Exception:
+                pass
+
+        if preprocessor is None:
+            preprocessor = PreprocessingPipeline()
+
+        try:
+            result = preprocessor.process_record(record)
+            cache_path.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
+            processed_records.append(result)
+        except Exception as e:
+            print(f"  WARNING: preprocessing failed for {ticker} {form}: {e}")
+            processed_records.append(record)
+
+    print(f"  {cached} from cache, {len(processed_records) - cached} newly processed\n")
+
+    return processed_records
 
 
 if __name__ == "__main__":
