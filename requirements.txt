@@ -8,3 +8,4 @@ spacy>=3.7
 negspacy>=1.0.4
 nltk>=3.8
 streamlit>=1.44.0
+datasets<3.0.0
