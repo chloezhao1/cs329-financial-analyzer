@@ -329,7 +329,7 @@ def main() -> None:
     current_year = date.today().year
     year_options = list(range(current_year, current_year - 5, -1))
     selected_year = st.sidebar.selectbox("Year", options=year_options, index=0)
-    report_type_options = ["10-K", "10-Q", "8-K", "EARNINGS_CALL"]
+    report_type_options = ["10-K", "10-Q", "EARNINGS_CALL"]
     selected_report_types = st.sidebar.multiselect(
         "Report Type",
         options=report_type_options,
