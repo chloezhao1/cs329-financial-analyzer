@@ -3,7 +3,7 @@ Financial Report Analyzer — Data Ingestion Pipeline
 CS329 Computational Linguistics, Group 7
 
 Orchestrates:
-  1. SEC EDGAR filing collection (10-K, 10-Q, 8-K)
+  1. SEC EDGAR filing collection (10-K, 10-Q)
   2. Earnings call transcript collection (Motley Fool / Kaggle)
 
 Output schema (each record saved as JSON):
