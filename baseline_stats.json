@@ -1,0 +1,193 @@
+{
+  "engine_version": "0.2.0",
+  "n_total_records": 49,
+  "indicators": [
+    "growth",
+    "risk"
+  ],
+  "min_sector_size": 4,
+  "sectors": {
+    "Technology": {
+      "n": 10,
+      "tickers": [
+        "AAPL",
+        "ADBE",
+        "AMZN",
+        "CRM",
+        "CSCO",
+        "GOOGL",
+        "META",
+        "MSFT",
+        "NVDA",
+        "ORCL"
+      ],
+      "reliable": true,
+      "growth": {
+        "mean": 0.0837,
+        "stdev": 0.0583
+      },
+      "risk": {
+        "mean": 0.2909,
+        "stdev": 0.0537
+      }
+    },
+    "Healthcare": {
+      "n": 10,
+      "tickers": [
+        "ABBV",
+        "AMGN",
+        "BMY",
+        "DHR",
+        "JNJ",
+        "LLY",
+        "MRK",
+        "PFE",
+        "TMO",
+        "UNH"
+      ],
+      "reliable": true,
+      "growth": {
+        "mean": 0.1167,
+        "stdev": 0.0825
+      },
+      "risk": {
+        "mean": 0.3286,
+        "stdev": 0.1282
+      }
+    },
+    "Financials": {
+      "n": 10,
+      "tickers": [
+        "AXP",
+        "BAC",
+        "BLK",
+        "C",
+        "GS",
+        "JPM",
+        "MA",
+        "MS",
+        "V",
+        "WFC"
+      ],
+      "reliable": true,
+      "growth": {
+        "mean": 0.0392,
+        "stdev": 0.0352
+      },
+      "risk": {
+        "mean": 0.3488,
+        "stdev": 0.2588
+      }
+    },
+    "Energy": {
+      "n": 9,
+      "tickers": [
+        "COP",
+        "CVX",
+        "EOG",
+        "MPC",
+        "OXY",
+        "PSX",
+        "SLB",
+        "VLO",
+        "XOM"
+      ],
+      "reliable": true,
+      "growth": {
+        "mean": 0.0893,
+        "stdev": 0.033
+      },
+      "risk": {
+        "mean": 0.2104,
+        "stdev": 0.1471
+      }
+    },
+    "Consumer": {
+      "n": 10,
+      "tickers": [
+        "COST",
+        "HD",
+        "KO",
+        "MCD",
+        "NKE",
+        "PEP",
+        "PG",
+        "SBUX",
+        "TGT",
+        "WMT"
+      ],
+      "reliable": true,
+      "growth": {
+        "mean": 0.1322,
+        "stdev": 0.0952
+      },
+      "risk": {
+        "mean": 0.2305,
+        "stdev": 0.1547
+      }
+    }
+  },
+  "_corpus_all": {
+    "n": 49,
+    "tickers": [
+      "AAPL",
+      "ABBV",
+      "ADBE",
+      "AMGN",
+      "AMZN",
+      "AXP",
+      "BAC",
+      "BLK",
+      "BMY",
+      "C",
+      "COP",
+      "COST",
+      "CRM",
+      "CSCO",
+      "CVX",
+      "DHR",
+      "EOG",
+      "GOOGL",
+      "GS",
+      "HD",
+      "JNJ",
+      "JPM",
+      "KO",
+      "LLY",
+      "MA",
+      "MCD",
+      "META",
+      "MPC",
+      "MRK",
+      "MS",
+      "MSFT",
+      "NKE",
+      "NVDA",
+      "ORCL",
+      "OXY",
+      "PEP",
+      "PFE",
+      "PG",
+      "PSX",
+      "SBUX",
+      "SLB",
+      "TGT",
+      "TMO",
+      "UNH",
+      "V",
+      "VLO",
+      "WFC",
+      "WMT",
+      "XOM"
+    ],
+    "reliable": true,
+    "growth": {
+      "mean": 0.0923,
+      "stdev": 0.0713
+    },
+    "risk": {
+      "mean": 0.2833,
+      "stdev": 0.1649
+    }
+  }
+}

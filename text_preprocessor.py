@@ -133,20 +133,36 @@ _SECTION_TITLE_PATTERNS: dict[str, re.Pattern[str]] = {
 }
  
 _ITEM_HEADER = re.compile(
-    # Require a letter immediately after the optional punctuation. Rejects
-    # titles that start with comma/quote/paren (typical of cross-references
-    # like "...Part II, Item 7, 'Management's Discussion...'").
-    r"\bitem\s+(?P<num>\d+[aAbB]?)\s*[.\-:]?\s{0,6}(?=[A-Za-z])"
+    # Require a letter immediately after optional punctuation. Also require
+    # either whitespace/punctuation separator before the title OR end-of-line,
+    # so we reject embedded item-letter patterns like "Item 1A," where the
+    # "A" is part of the item designator, not a title starting with "A,".
+    # Key change: the punctuation group is no longer optional -- we require
+    # SOME separator (period, dash, colon, or whitespace >= 1 char) between
+    # the number and the title.
+    r"\bitem\s+(?P<num>\d+[aAbB]?)"
+    r"(?:\s*[.\-:]\s{0,6}|\s{2,})"          # require . - : OR multiple spaces
+    r"(?=[A-Za-z])"
     r"(?P<title>[^\n]{0,120})",
     re.IGNORECASE | re.MULTILINE,
 )
+
 # Phrases that appear in cross-references to other sections, never in real
 # section headers. When a candidate's trailing title starts with one of
 # these, we reject the candidate.
 _CROSS_REF_TITLE = re.compile(
-    r"^\s*(?:of\s+(?:the|this)|in\s+(?:the|this)|under\s+(?:the|this)"
+    r"^\s*(?:of\s+(?:the|this|our)"
+    r"|in\s+(?:the|this|our)"
+    r"|under\s+(?:the|this|our)"
     r"|described\s+in|discussed\s+in|referenced\s+in|set\s+forth\s+in"
-    r"|to\s+the|included\s+in|and\s+(?:our|this)|see\s+(?:also|part))",
+    r"|to\s+the|included\s+in|and\s+(?:our|this)|see\s+(?:also|part)"
+    r"|for\s+(?:the|this|our|a)"
+    # NEW: prose continuations. Real section headers start with a noun
+    # phrase (e.g. "Risk Factors", "Management's Discussion..."). Anything
+    # starting with "We ", "Our ", "This ", "These ", etc. is a sentence
+    # that happens to mention "Item NX" in passing.
+    r"|we\s+|our\s+|this\s+|these\s+|there\s+|"
+    r"any\s+|such\s+|if\s+|when\s+|because\s+|although\s+)",
     re.IGNORECASE,
 )
  
