@@ -7,6 +7,8 @@
 | `run_pipeline.py` | Master entrypoint — runs both collectors |
 | `sec_edgar_collector.py` | Pulls 10-K, 10-Q filings from SEC EDGAR |
 | `transcript_scraper.py` | Scrapes earnings call transcripts (Motley Fool / Kaggle) |
+| `financial_signal_engine.py` | Explainable two-hidden-layer signal engine for growth, risk, and cost pressure |
+| `frontend_app.py` | Streamlit dashboard for report comparison and explainable signal visualization |
 | `requirements.txt` | Python dependencies |
 
 ## Output Structure
@@ -64,7 +66,37 @@ python run_pipeline.py --skip-transcripts
 
 # Just transcripts
 python run_pipeline.py --skip-sec
+
+# Launch the frontend dashboard
+streamlit run frontend_app.py
 ```
+
+## Frontend Demo
+
+The frontend is designed for the project's explainability goals. It shows:
+
+- Growth, Risk, Cost Pressure, and Net Operating Signal cards
+- Top contributing phrases behind each score
+- Sentence-level explainability trace
+- Cross-report comparison charts
+- A sentence-level net-signal histogram
+
+If `data/processed/` exists, the dashboard reads processed reports from there.
+Otherwise it falls back to `demo_data/sample_documents.json` so the UI can still
+be demonstrated before the full pipeline is populated.
+
+## Signal Engine
+
+The current signal engine uses:
+
+- Loughran-McDonald-inspired phrase matches as input features
+- two hidden layers to map phrase evidence into higher-level financial patterns
+- separate output scores for `growth`, `risk`, and `cost_pressure`
+- a derived `Net Operating Signal = growth - risk`
+
+This keeps the model aligned with the project proposal's interpretability goal:
+lexicon evidence remains visible, while the multi-layer mapping gives a more
+structured signal representation than a single flat sentiment score.
 
 ## SEC EDGAR Notes
 
@@ -83,5 +115,3 @@ python run_pipeline.py --skip-sec
   documented as a stub in `transcript_scraper.py`.
 - **Kaggle dataset** (`--kaggle-csv`) is the most reliable bulk source:
   https://www.kaggle.com/datasets/tpotterer/motley-fool-scraped-earnings-call-transcripts
-
-
