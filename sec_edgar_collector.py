@@ -1,6 +1,6 @@
 """
 SEC EDGAR Filing Collector
-Pulls 10-K, 10-Q, and 8-K filings via the SEC EDGAR full-text search API.
+Pulls 10-K, 10-Q filings via the SEC EDGAR full-text search API.
 Saves structured JSON records with company name, date, report type, and raw text.
 """
 
