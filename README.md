@@ -82,14 +82,15 @@ The frontend is designed for the project's explainability goals. It shows:
 - A sentence-level net-signal histogram
 
 If `data/processed/` exists, the dashboard reads processed reports from there.
-Otherwise it falls back to `demo_data/sample_documents.json` so the UI can still
-be demonstrated before the full pipeline is populated.
+Otherwise it reads raw scraper output from `data/filings/` and `data/transcripts/`.
+If neither exists, it falls back to `demo_data/sample_documents.json` so the UI
+can still be demonstrated before the full pipeline is populated.
 
 ## Signal Engine
 
 The current signal engine uses:
 
-- Loughran-McDonald-inspired phrase matches as input features
+- Loughran-McDonald dictionary category matches as input features
 - two hidden layers to map phrase evidence into higher-level financial patterns
 - separate output scores for `growth`, `risk`, and `cost_pressure`
 - a derived `Net Operating Signal = growth - risk`
@@ -97,6 +98,17 @@ The current signal engine uses:
 This keeps the model aligned with the project proposal's interpretability goal:
 lexicon evidence remains visible, while the multi-layer mapping gives a more
 structured signal representation than a single flat sentiment score.
+
+If you add the official CSV to one of these locations, the engine will pick it
+up automatically:
+
+- repo root
+- `data/`
+- `data/lexicon/`
+- `data/lexicons/`
+
+Supported filenames include `LM_MasterDictionary_1993-2024.csv`,
+`LM_MasterDictionary.csv`, and `loughran_mcdonald.csv`.
 
 ## SEC EDGAR Notes
 

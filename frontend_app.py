@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
-from financial_signal_engine import analyze_records, build_comparison_rows, load_records
+from financial_signal_engine import (
+    analyze_records,
+    build_comparison_rows,
+    infer_data_source,
+    load_records,
+)
+from run_pipeline import run_full_pipeline
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -20,6 +27,32 @@ COLOR_MAP = {
 
 def _format_document_label(analysis: dict) -> str:
     return f"{analysis['ticker']} | {analysis['form_type']} | {analysis['filing_date']}"
+
+
+def _filter_analyses(
+    analyses: list[dict],
+    tickers: list[str],
+    report_types: list[str],
+    selected_year: int | None,
+) -> list[dict]:
+    filtered = []
+    ticker_set = {ticker.upper() for ticker in tickers if ticker}
+    report_type_set = {report_type.upper() for report_type in report_types if report_type}
+
+    for analysis in analyses:
+        if ticker_set and analysis["ticker"].upper() not in ticker_set:
+            continue
+        if report_type_set and analysis["form_type"].upper() not in report_type_set:
+            continue
+        try:
+            parsed = date.fromisoformat(analysis["filing_date"])
+        except Exception:
+            parsed = None
+        if selected_year and parsed and parsed.year != selected_year:
+            continue
+        filtered.append(analysis)
+
+    return filtered
 
 
 def _sentence_histogram_frame(sentence_signals: list[dict]) -> pd.DataFrame:
@@ -277,7 +310,10 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    records = load_records(BASE_DIR)
+    if "loaded_records" not in st.session_state:
+        st.session_state.loaded_records = load_records(BASE_DIR)
+
+    records = st.session_state.loaded_records
     analyses = analyze_records(records)
 
     if not analyses:
@@ -287,9 +323,65 @@ def main() -> None:
         )
         return
 
-    data_source = "data/processed" if (BASE_DIR / "data" / "processed").exists() else "demo_data"
     st.sidebar.header("Controls")
-    st.sidebar.write(f"Data source: `{data_source}`")
+    st.sidebar.subheader("Fetch Reports")
+    ticker_text = st.sidebar.text_input("Ticker", value="AAPL")
+    current_year = date.today().year
+    year_options = list(range(current_year, current_year - 5, -1))
+    selected_year = st.sidebar.selectbox("Year", options=year_options, index=0)
+    report_type_options = ["10-K", "10-Q", "8-K", "EARNINGS_CALL"]
+    selected_report_types = st.sidebar.multiselect(
+        "Report Type",
+        options=report_type_options,
+        default=["10-K", "10-Q"],
+    )
+    max_per_type = st.sidebar.selectbox("Documents Per Type", options=[1, 2, 3, 4], index=1)
+    fetch_clicked = st.sidebar.button("Fetch Data", use_container_width=True, type="primary")
+
+    start_date = date(selected_year, 1, 1)
+    end_date = date(selected_year, 12, 31)
+
+    if fetch_clicked:
+        tickers = [ticker.strip().upper() for ticker in ticker_text.split(",") if ticker.strip()]
+        sec_forms = [report for report in selected_report_types if report != "EARNINGS_CALL"]
+        include_transcripts = "EARNINGS_CALL" in selected_report_types
+
+        with st.spinner("Running data pipeline and loading selected reports..."):
+            records = run_full_pipeline(
+                tickers=tickers or ["AAPL"],
+                form_types=sec_forms or ["10-K", "10-Q"],
+                max_per_type=max_per_type,
+                skip_sec=not bool(sec_forms),
+                skip_transcripts=not include_transcripts,
+                start_date=start_date,
+                end_date=end_date,
+            )
+            st.session_state.loaded_records = records
+            analyses = analyze_records(records)
+
+    st.sidebar.subheader("View Filters")
+    selected_tickers = [
+        ticker.strip().upper() for ticker in ticker_text.split(",") if ticker.strip()
+    ]
+    if not selected_tickers:
+        selected_tickers = sorted({analysis["ticker"] for analysis in analyses})
+
+    analyses = _filter_analyses(
+        analyses,
+        tickers=selected_tickers,
+        report_types=selected_report_types,
+        selected_year=selected_year,
+    )
+
+    if not analyses:
+        st.warning("No reports matched the selected ticker, year, and report type filters.")
+        return
+
+    data_source = infer_data_source(BASE_DIR)
+    if data_source == "pipeline_output":
+        st.sidebar.write("Data source: `data/filings + data/transcripts`")
+    else:
+        st.sidebar.write(f"Data source: `{data_source}`")
 
     labels = [_format_document_label(analysis) for analysis in analyses]
     label_to_analysis = dict(zip(labels, analyses))
@@ -313,6 +405,7 @@ def main() -> None:
             f"Engine: `{primary['model']['type']}` with hidden layers "
             f"`{primary['model']['hidden_layer_sizes']}`"
         )
+        st.caption(f"Lexicon source: `{primary['model'].get('lexicon_source', 'unknown')}`")
 
     _render_metric_row(primary)
     _render_key_takeaways(primary)
@@ -351,7 +444,7 @@ def main() -> None:
 
     with st.expander("Model internals for the selected report"):
         st.write(
-            "This engine uses Loughran-McDonald-inspired phrase features as input, "
+            "This engine uses Loughran-McDonald dictionary category matches as input, "
             "then maps them through two hidden layers before producing separate "
             "growth, risk, and cost-pressure outputs."
         )

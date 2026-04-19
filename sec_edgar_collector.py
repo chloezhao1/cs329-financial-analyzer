@@ -9,13 +9,13 @@ import json
 import time
 import re
 import os
-from datetime import datetime
+from datetime import datetime, date
 from pathlib import Path
 from typing import Optional
 
 # ─── Output Directory ────────────────────────────────────────────────────────
-OUTPUT_DIR = Path("data/filings")
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+BASE_DIR = Path(__file__).resolve().parent
+OUTPUT_DIR = BASE_DIR / "data" / "filings"
 
 HEADERS = {
     "User-Agent": "CS329-FinancialReportAnalyzer chloe.zhao@emory.edu",  # REQUIRED by SEC
@@ -56,7 +56,29 @@ def get_cik_from_ticker(ticker: str) -> Optional[str]:
 
 # ─── Filing List Retrieval ────────────────────────────────────────────────────
 
-def get_filings_for_company(cik: str, form_types: list[str], max_per_type: int = 4) -> list[dict]:
+def _within_date_range(
+    filing_date: str,
+    start_date: date | None,
+    end_date: date | None,
+) -> bool:
+    try:
+        parsed = datetime.strptime(filing_date, "%Y-%m-%d").date()
+    except Exception:
+        return True
+    if start_date and parsed < start_date:
+        return False
+    if end_date and parsed > end_date:
+        return False
+    return True
+
+
+def get_filings_for_company(
+    cik: str,
+    form_types: list[str],
+    max_per_type: int = 4,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> list[dict]:
     """
     Fetch recent filing metadata for a company from EDGAR submissions endpoint.
     Returns a list of dicts: {accession_number, form_type, filing_date, primary_doc}.
@@ -83,7 +105,11 @@ def get_filings_for_company(cik: str, form_types: list[str], max_per_type: int =
     counts = {ft: 0 for ft in form_types}
 
     for form, acc, date, doc in zip(forms, accessions, dates, primary_docs):
-        if form in form_types and counts[form] < max_per_type:
+        if (
+            form in form_types
+            and counts[form] < max_per_type
+            and _within_date_range(date, start_date, end_date)
+        ):
             results.append({
                 "company_name": company_name,
                 "cik": cik,
@@ -159,6 +185,7 @@ def fetch_filing_text_v2(cik: str, accession_number: str, primary_document: str)
 
 def save_filing_record(record: dict):
     """Save a structured filing record as JSON."""
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     ticker = record.get("ticker", "UNKNOWN")
     form_type = record["form_type"].replace("/", "_")
     date = record["filing_date"]
@@ -177,6 +204,8 @@ def collect_sec_filings(
     form_types: list[str] = ["10-K", "10-Q"],
     max_per_type: int = 2,
     delay: float = 0.5,
+    start_date: date | None = None,
+    end_date: date | None = None,
 ):
     """
     Main entry point. For each ticker:
@@ -188,6 +217,7 @@ def collect_sec_filings(
     print("\n" + "="*60)
     print("  SEC EDGAR Filing Collector — CS329 Financial Report Analyzer")
     print("="*60)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     all_records = []
 
@@ -199,7 +229,13 @@ def collect_sec_filings(
         if not cik:
             continue
 
-        filings = get_filings_for_company(cik, form_types, max_per_type)
+        filings = get_filings_for_company(
+            cik,
+            form_types,
+            max_per_type,
+            start_date=start_date,
+            end_date=end_date,
+        )
 
         for filing in filings:
             print(f"  [↓] Fetching {filing['form_type']} from {filing['filing_date']}...")

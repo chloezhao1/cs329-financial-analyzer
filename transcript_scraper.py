@@ -13,13 +13,13 @@ import json
 import time
 import re
 import os
-from datetime import datetime
+from datetime import datetime, date
 from pathlib import Path
 from typing import Optional
 
 # ─── Output Directory ────────────────────────────────────────────────────────
-OUTPUT_DIR = Path("data/transcripts")
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+BASE_DIR = Path(__file__).resolve().parent
+OUTPUT_DIR = BASE_DIR / "data" / "transcripts"
 
 
 # ─── Selenium Setup ───────────────────────────────────────────────────────────
@@ -255,6 +255,22 @@ def _normalize_date(date_str: str) -> str:
     return date_str  # return as-is if can't parse
 
 
+def _within_date_range(
+    filing_date: str,
+    start_date: date | None,
+    end_date: date | None,
+) -> bool:
+    try:
+        parsed = datetime.strptime(filing_date, "%Y-%m-%d").date()
+    except Exception:
+        return True
+    if start_date and parsed < start_date:
+        return False
+    if end_date and parsed > end_date:
+        return False
+    return True
+
+
 def _parse_quarter_year(title: str) -> tuple[str, str]:
     """Extract Q1/Q2/Q3/Q4 and year from transcript title."""
     q_match = re.search(r'Q([1-4])', title, re.IGNORECASE)
@@ -273,6 +289,7 @@ def _parse_company_name(title: str, ticker: str) -> str:
 
 def save_transcript_record(record: dict):
     """Save a transcript record as JSON."""
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     ticker = record.get("ticker", "UNKNOWN")
     quarter = record.get("quarter", "")
     year = record.get("year", "")
@@ -291,10 +308,13 @@ def collect_transcripts(
     tickers: list[str],
     max_per_ticker: int = 4,
     kaggle_pkl_path: str = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
 ):
     print("\n" + "="*60)
     print("  Earnings Call Transcript Collector — CS329")
     print("="*60)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     all_records = []
 
@@ -310,6 +330,13 @@ def collect_transcripts(
             records = scrape_motley_fool_transcripts(ticker, max_transcripts=max_per_ticker)
             all_records.extend(records)
             time.sleep(2.0)
+
+    if start_date or end_date:
+        all_records = [
+            record
+            for record in all_records
+            if _within_date_range(record.get("filing_date", ""), start_date, end_date)
+        ]
 
     # Write master index
     index_path = OUTPUT_DIR / "_index.json"

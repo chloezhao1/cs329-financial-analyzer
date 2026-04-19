@@ -31,10 +31,12 @@ Usage:
 import argparse
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, date
 
 from sec_edgar_collector import collect_sec_filings
 from transcript_scraper import collect_transcripts
+
+BASE_DIR = Path(__file__).resolve().parent
 
 
 def run_full_pipeline(
@@ -44,6 +46,8 @@ def run_full_pipeline(
     kaggle_pkl: str = None,
     skip_sec: bool = False,
     skip_transcripts: bool = False,
+    start_date: date | None = None,
+    end_date: date | None = None,
 ):
     start = datetime.utcnow()
     print("\n" + "█"*60)
@@ -62,6 +66,8 @@ def run_full_pipeline(
             tickers=tickers,
             form_types=form_types,
             max_per_type=max_per_type,
+            start_date=start_date,
+            end_date=end_date,
         )
         all_records.extend(sec_records)
     else:
@@ -74,6 +80,8 @@ def run_full_pipeline(
             tickers=tickers,
             max_per_ticker=max_per_type,
             kaggle_pkl_path=kaggle_pkl,
+            start_date=start_date,
+            end_date=end_date,
         )
         all_records.extend(transcript_records)
     else:
@@ -110,7 +118,7 @@ def run_full_pipeline(
     print(f"  Elapsed : {elapsed:.1f}s")
 
     # Write combined master index
-    master_index_path = Path("data/_master_index.json")
+    master_index_path = BASE_DIR / "data" / "_master_index.json"
     master_index_path.parent.mkdir(exist_ok=True)
     index = [{k: v for k, v in r.items() if k != "raw_text"} for r in all_records]
     with open(master_index_path, "w") as f:
@@ -135,8 +143,15 @@ if __name__ == "__main__":
                         help="Skip SEC EDGAR collection")
     parser.add_argument("--skip-transcripts", action="store_true",
                         help="Skip earnings transcript collection")
+    parser.add_argument("--start-date", type=str, default=None,
+                        help="Optional start date in YYYY-MM-DD")
+    parser.add_argument("--end-date", type=str, default=None,
+                        help="Optional end date in YYYY-MM-DD")
 
     args = parser.parse_args()
+
+    start_date = date.fromisoformat(args.start_date) if args.start_date else None
+    end_date = date.fromisoformat(args.end_date) if args.end_date else None
 
     run_full_pipeline(
         tickers=args.tickers,
@@ -145,4 +160,6 @@ if __name__ == "__main__":
         kaggle_pkl=args.kaggle_pkl,
         skip_sec=args.skip_sec,
         skip_transcripts=args.skip_transcripts,
+        start_date=start_date,
+        end_date=end_date,
     )
