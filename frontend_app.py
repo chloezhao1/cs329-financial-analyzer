@@ -381,17 +381,5 @@ def main() -> None:
         trend_frame = comparison_frame.reset_index()[["label", "net_operating_signal"]]
         st.line_chart(trend_frame.set_index("label"))
 
-    with st.expander("How this frontend fits the project proposal"):
-        st.write(
-            "This dashboard is aligned to the proposal's explainable-output goal: it "
-            "separates growth, risk, and cost pressure; synthesizes a Net Operating "
-            "Signal; surfaces contributing phrases; and supports cross-report comparison."
-        )
-        st.write(
-            "If richer engine outputs arrive later, this app can read them from "
-            "`data/processed/` with the same report selector and comparison layout."
-        )
-
-
 if __name__ == "__main__":
     main()
