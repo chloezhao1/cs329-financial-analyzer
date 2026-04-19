@@ -219,6 +219,7 @@ def collect_sec_filings(
     print("="*60)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
+
     all_records = []
 
     for ticker in tickers:

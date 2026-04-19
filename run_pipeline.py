@@ -36,6 +36,7 @@ from datetime import datetime, date
 from sec_edgar_collector import collect_sec_filings
 from transcript_scraper import collect_transcripts
 
+
 BASE_DIR = Path(__file__).resolve().parent
 
 

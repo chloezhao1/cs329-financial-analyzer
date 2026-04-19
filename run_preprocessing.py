@@ -44,6 +44,7 @@ def _iter_input_files(data_dir: Path) -> list[Path]:
     return out
 
 
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--data-dir", type=Path, default=Path("data"),

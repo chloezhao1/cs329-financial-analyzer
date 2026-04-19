@@ -36,6 +36,7 @@ def _sentence_records(record: dict) -> list[dict]:
     if sentences:
         return sentences
 
+
     raw_text = record.get("raw_text", "")
     return [
         {
