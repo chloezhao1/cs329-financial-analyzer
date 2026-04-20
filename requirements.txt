@@ -9,3 +9,14 @@ negspacy>=1.0.4
 nltk>=3.8
 streamlit>=1.44.0
 datasets<3.0.0
+
+# FastAPI bridge (backend/ directory) consumed by the React frontend
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.0
+python-dotenv>=1.0.0
+
+# Optional: hybrid LLM engine (financial_signal_engine_LLMv1.py). Only used
+# when ANTHROPIC_API_KEY is set; the default lexicon engine (V2) does not
+# need this package to function.
+anthropic>=0.34.0

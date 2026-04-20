@@ -7,15 +7,30 @@ import pandas as pd
 import streamlit as st
 
 from financial_signal_engine import (
+    LMDictionary,
     analyze_records,
     build_comparison_rows,
     infer_data_source,
     load_records,
 )
+from financial_signal_engine_v2 import SignalEngineV2
 from run_pipeline import run_full_pipeline
 
 
 BASE_DIR = Path(__file__).resolve().parent
+
+
+def _get_default_engine() -> SignalEngineV2:
+    """Build the V2 engine once per Streamlit session (cached in session state)."""
+    if "signal_engine" not in st.session_state:
+        lm_csv_candidates = [
+            BASE_DIR / "data" / "lexicons" / "loughran_mcdonald.csv",
+            BASE_DIR / "data" / "loughran_mcdonald.csv",
+            BASE_DIR / "Loughran-McDonald_MasterDictionary_1993-2025.csv",
+        ]
+        lm_csv = next((p for p in lm_csv_candidates if p.exists()), lm_csv_candidates[0])
+        st.session_state.signal_engine = SignalEngineV2(LMDictionary.from_csv(lm_csv))
+    return st.session_state.signal_engine
 
 COLOR_MAP = {
     "growth": "#1f8f5f",
@@ -324,7 +339,7 @@ def main() -> None:
         st.session_state.loaded_records = load_records(BASE_DIR)
 
     records = st.session_state.loaded_records
-    analyses = analyze_records(records)
+    analyses = analyze_records(records, engine=_get_default_engine())
 
     if not analyses:
         st.error(
@@ -367,7 +382,7 @@ def main() -> None:
                 end_date=end_date,
             )
             st.session_state.loaded_records = records
-            analyses = analyze_records(records)
+            analyses = analyze_records(records, engine=_get_default_engine())
 
     st.sidebar.subheader("View Filters")
     selected_tickers = [

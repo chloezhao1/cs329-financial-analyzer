@@ -2,7 +2,10 @@ data/
 __pycache__/
 *.pyc
 .env
+.env.local
+.env.*.local
 venv/
 .venv/
 .DS_Store
-*.pkldata/lexicons/
+*.pkl
+data/lexicons/

@@ -123,7 +123,7 @@ def run_full_pipeline(
     master_index_path = BASE_DIR / "data" / "_master_index.json"
     master_index_path.parent.mkdir(exist_ok=True)
     index = [{k: v for k, v in r.items() if k != "raw_text"} for r in all_records]
-    with open(master_index_path, "w") as f:
+    with open(master_index_path, "w", encoding="utf-8") as f:
         json.dump(index, f, indent=2)
     print(f"\n  Master index → {master_index_path}")
     print("="*60 + "\n")

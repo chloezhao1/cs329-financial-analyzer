@@ -263,7 +263,7 @@ def collect_sec_filings(
     # Also write a master index
     index_path = OUTPUT_DIR / "_index.json"
     index = [{k: v for k, v in r.items() if k != "raw_text"} for r in all_records]
-    with open(index_path, "w") as f:
+    with open(index_path, "w", encoding="utf-8") as f:
         json.dump(index, f, indent=2)
     print(f"\n[✓] Master index saved → {index_path}")
     print(f"[✓] Total records collected: {len(all_records)}")

@@ -25,7 +25,8 @@ from pathlib import Path
 
 from datasets import load_dataset
 from sklearn.metrics import (accuracy_score, classification_report, confusion_matrix,)
-from financial_signal_engine import LMDictionary, SignalEngine
+from financial_signal_engine import LMDictionary
+from financial_signal_engine_v2 import SignalEngineV2
 from text_preprocessor import FinancialNLPProcessor
 
 logger = logging.getLogger(__name__)
@@ -120,7 +121,7 @@ def run_evaluation(
     #loading components for the engine, print statements for checks 
     logger.info("Check: Loading Loughran-McDonald dictionary from %s", lm_csv)
     lm = LMDictionary.from_csv(lm_csv)
-    engine = SignalEngine(lm)
+    engine = SignalEngineV2(lm)
     logger.info("Check: Initializing spaCy NLP processor")
     nlp = FinancialNLPProcessor(model="en_core_web_sm")
  
