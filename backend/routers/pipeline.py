@@ -27,6 +27,9 @@ router = APIRouter()
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
+# Must match Fetch & Analyze year window in the React app.
+_MIN_PIPELINE_YEAR = 2022
+_MAX_PIPELINE_YEAR = 2026
 
 FormType = Literal["10-K", "10-Q", "EARNINGS_CALL"]
 
@@ -70,6 +73,33 @@ def run_pipeline(req: RunPipelineRequest) -> RunPipelineResponse:
     if not tickers:
         raise HTTPException(status_code=400, detail="No usable tickers supplied.")
 
+    if req.start_date is not None:
+        y = req.start_date.year
+        if y < _MIN_PIPELINE_YEAR or y > _MAX_PIPELINE_YEAR:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"start_date year must be between {_MIN_PIPELINE_YEAR} and "
+                    f"{_MAX_PIPELINE_YEAR} (got {y})."
+                ),
+            )
+    if req.end_date is not None:
+        y = req.end_date.year
+        if y < _MIN_PIPELINE_YEAR or y > _MAX_PIPELINE_YEAR:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"end_date year must be between {_MIN_PIPELINE_YEAR} and "
+                    f"{_MAX_PIPELINE_YEAR} (got {y})."
+                ),
+            )
+    if req.start_date is not None and req.end_date is not None:
+        if req.start_date > req.end_date:
+            raise HTTPException(
+                status_code=400,
+                detail="start_date must be on or before end_date.",
+            )
+
     sec_forms = [f for f in req.form_types if f != "EARNINGS_CALL"]
     include_transcripts = "EARNINGS_CALL" in req.form_types and not req.skip_transcripts
 
@@ -95,9 +125,22 @@ def run_pipeline(req: RunPipelineRequest) -> RunPipelineResponse:
                 analyses = analyze_records(records, engine=engine)
             else:
                 analyses = []
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("Pipeline run failed")
         raise HTTPException(status_code=500, detail=f"Pipeline run failed: {e}")
+
+    if not records:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "No filings or transcripts were collected. Check that tickers are valid "
+                "SEC symbols, your date range includes filing dates, and the selected "
+                "form types are not all skipped (e.g. transcripts require enabling the "
+                "earnings-call option when applicable)."
+            ),
+        )
 
     cache = get_cache()
     cache.invalidate()

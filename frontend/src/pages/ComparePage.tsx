@@ -9,7 +9,6 @@ import { DataTable } from "@/components/common/DataTable";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ErrorState } from "@/components/common/ErrorState";
 import { Loader } from "@/components/common/Loader";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -72,33 +71,6 @@ export function ComparePage() {
             >
               {formatSignedNumber(v)}
             </span>
-          );
-        },
-      },
-      {
-        accessorKey: "z_net",
-        header: "z · Net",
-        cell: (ctx) => {
-          const v = ctx.getValue<number | null>();
-          if (v == null) return <span className="text-muted-foreground">–</span>;
-          return (
-            <span className="font-mono">
-              {formatSignedNumber(v)}
-            </span>
-          );
-        },
-      },
-      {
-        accessorKey: "z_reference_label",
-        header: "Baseline",
-        cell: (ctx) => {
-          const label = ctx.getValue<string | null>();
-          if (!label) return <span className="text-muted-foreground">–</span>;
-          const row = ctx.row.original;
-          return (
-            <Badge variant={row.z_is_sector_specific ? "default" : "muted"}>
-              {label}
-            </Badge>
           );
         },
       },
@@ -228,7 +200,6 @@ export function ComparePage() {
         <Tabs defaultValue="chart">
           <TabsList>
             <TabsTrigger value="chart">Chart</TabsTrigger>
-            <TabsTrigger value="zscore">z-scored</TabsTrigger>
             <TabsTrigger value="table">Table</TabsTrigger>
           </TabsList>
 
@@ -239,17 +210,6 @@ export function ComparePage() {
               </CardHeader>
               <CardContent>
                 <SignalBarChart rows={comparisonQuery.data ?? []} mode="raw" />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="zscore">
-            <Card>
-              <CardHeader>
-                <CardTitle>Sector-relative z-scores</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <SignalBarChart rows={comparisonQuery.data ?? []} mode="zscore" />
               </CardContent>
             </Card>
           </TabsContent>

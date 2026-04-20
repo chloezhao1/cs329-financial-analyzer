@@ -16,6 +16,18 @@ import type { FormType, RunPipelineResponse } from "@/types/api";
 
 const CHOICES: FormType[] = ["10-K", "10-Q", "EARNINGS_CALL"];
 
+/** Allowed filing year range for the pipeline date window (inclusive). */
+const MIN_PIPELINE_YEAR = 2022;
+const MAX_PIPELINE_YEAR = 2026;
+
+/** Mirrors backend when the pipeline collects nothing (invalid ticker, empty date range, etc.). */
+const PIPELINE_EMPTY_MESSAGE =
+  "No filings or transcripts were collected. Check that tickers are valid SEC symbols, your date range includes filing dates, and the selected form types are not all skipped (e.g. transcripts require enabling the earnings-call option when applicable).";
+
+function clampPipelineYear(y: number): number {
+  return Math.min(MAX_PIPELINE_YEAR, Math.max(MIN_PIPELINE_YEAR, y));
+}
+
 export function FetchPage() {
   const queryClient = useQueryClient();
   const tickerStored = useFiltersStore((s) => s.ticker);
@@ -28,16 +40,26 @@ export function FetchPage() {
   const currentYear = new Date().getFullYear();
   const [tickersText, setTickersText] = useState(tickerStored);
   const [skipTranscripts, setSkipTranscripts] = useState(true);
-  const [startYear, setStartYear] = useState<string>(String(currentYear - 1));
-  const [endYear, setEndYear] = useState<string>(String(currentYear));
+  const [startYear, setStartYear] = useState<string>(
+    String(clampPipelineYear(currentYear - 1)),
+  );
+  const [endYear, setEndYear] = useState<string>(
+    String(clampPipelineYear(currentYear)),
+  );
 
   const toYearStart = (year: string): string | undefined => {
     const n = Number(year);
-    return Number.isFinite(n) && n > 1900 ? `${n}-01-01` : undefined;
+    if (!Number.isFinite(n) || n < MIN_PIPELINE_YEAR || n > MAX_PIPELINE_YEAR) {
+      return undefined;
+    }
+    return `${n}-01-01`;
   };
   const toYearEnd = (year: string): string | undefined => {
     const n = Number(year);
-    return Number.isFinite(n) && n > 1900 ? `${n}-12-31` : undefined;
+    if (!Number.isFinite(n) || n < MIN_PIPELINE_YEAR || n > MAX_PIPELINE_YEAR) {
+      return undefined;
+    }
+    return `${n}-12-31`;
   };
 
   const mutation = useMutation<RunPipelineResponse, Error, void>({
@@ -49,7 +71,22 @@ export function FetchPage() {
       if (tickers.length === 0) {
         throw new Error("Enter at least one ticker.");
       }
-      return runPipeline({
+      const start = Number(startYear);
+      const end = Number(endYear);
+      if (!Number.isInteger(start) || start < MIN_PIPELINE_YEAR || start > MAX_PIPELINE_YEAR) {
+        throw new Error(
+          `Start year must be a whole number between ${MIN_PIPELINE_YEAR} and ${MAX_PIPELINE_YEAR}.`,
+        );
+      }
+      if (!Number.isInteger(end) || end < MIN_PIPELINE_YEAR || end > MAX_PIPELINE_YEAR) {
+        throw new Error(
+          `End year must be a whole number between ${MIN_PIPELINE_YEAR} and ${MAX_PIPELINE_YEAR}.`,
+        );
+      }
+      if (start > end) {
+        throw new Error("Start year cannot be after end year.");
+      }
+      const data = await runPipeline({
         tickers,
         form_types: reportTypes,
         max_per_type: maxPerType,
@@ -57,6 +94,11 @@ export function FetchPage() {
         start_date: toYearStart(startYear),
         end_date: toYearEnd(endYear),
       });
+      // Defensive: treat 0 records as failure even if an older API still returns 200.
+      if (data.n_records === 0) {
+        throw new Error(PIPELINE_EMPTY_MESSAGE);
+      }
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["analyses"] });
@@ -157,15 +199,16 @@ export function FetchPage() {
             <Input
               id="start-year"
               type="number"
-              min={1994}
-              max={currentYear}
+              min={MIN_PIPELINE_YEAR}
+              max={MAX_PIPELINE_YEAR}
               step={1}
-              placeholder={String(currentYear - 1)}
+              placeholder={String(clampPipelineYear(currentYear - 1))}
               value={startYear}
               onChange={(e) => setStartYear(e.target.value)}
             />
             <p className="text-[0.7rem] text-muted-foreground">
-              Filings from Jan 1 of this year onward.
+              Allowed range: {MIN_PIPELINE_YEAR}–{MAX_PIPELINE_YEAR}. Filings from Jan 1 of this
+              year onward.
             </p>
           </div>
 
@@ -174,15 +217,16 @@ export function FetchPage() {
             <Input
               id="end-year"
               type="number"
-              min={1994}
-              max={currentYear}
+              min={MIN_PIPELINE_YEAR}
+              max={MAX_PIPELINE_YEAR}
               step={1}
-              placeholder={String(currentYear)}
+              placeholder={String(clampPipelineYear(currentYear))}
               value={endYear}
               onChange={(e) => setEndYear(e.target.value)}
             />
             <p className="text-[0.7rem] text-muted-foreground">
-              Filings up to Dec 31 of this year.
+              Allowed range: {MIN_PIPELINE_YEAR}–{MAX_PIPELINE_YEAR}. Filings up to Dec 31 of this
+              year.
             </p>
           </div>
         </CardContent>
