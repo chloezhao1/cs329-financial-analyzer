@@ -1,7 +1,7 @@
 import { AnalysisDetail } from "@/components/common/AnalysisDetail";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ErrorState } from "@/components/common/ErrorState";
-import { HybridRescorePanel } from "@/components/common/HybridRescorePanel";
+import { LlmScorePanel } from "@/components/common/LlmScorePanel";
 import { Loader } from "@/components/common/Loader";
 import {
   Select,
@@ -78,7 +78,7 @@ export function DashboardPage() {
       {primary ? (
         <>
           <AnalysisDetail analysis={primary} />
-          <HybridRescorePanel label={primaryLabel} originalAnalysis={primary} />
+          <LlmScorePanel label={primaryLabel} />
         </>
       ) : (
         <EmptyState

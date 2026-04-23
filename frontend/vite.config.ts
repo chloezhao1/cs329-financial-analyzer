@@ -16,5 +16,9 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: false,
+    // Same-origin /api in dev (see src/api/http.ts) — no CORS to FastAPI
+    proxy: {
+      "/api": { target: "http://127.0.0.1:8000", changeOrigin: true },
+    },
   },
 });

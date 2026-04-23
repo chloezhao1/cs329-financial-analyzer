@@ -41,7 +41,13 @@ from typing import Any
 from sector_map import BASELINE_TICKERS, SECTOR_MAP, SECTORS, sector_for
 
 try:
-    from financial_signal_engine import LMDictionary, SignalEngine, load_records
+    from financial_signal_engine import LMDictionary, load_records
+
+    _ROOT = Path(__file__).resolve().parent
+    if str(_ROOT) not in sys.path:
+        sys.path.insert(0, str(_ROOT))
+    from backend.engine_factory import load_preferred_signal_engine
+
     _HAS_ENGINE = True
 except ImportError as e:
     # Defer the error until main() actually needs the engine. This allows
@@ -228,9 +234,10 @@ def main() -> int:
         )
         return 1
 
+    project_root = Path(__file__).resolve().parent
     logger.info("Loading LM dictionary from %s", args.lm_csv)
-    lm = LMDictionary.from_csv(args.lm_csv)
-    engine = SignalEngine(lm)
+    LMDictionary.from_csv(args.lm_csv)  # validate CSV early
+    engine = load_preferred_signal_engine(args.lm_csv, project_root)
 
     records = load_records(Path("."))
     if not records:

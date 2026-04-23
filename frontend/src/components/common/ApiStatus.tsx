@@ -41,12 +41,12 @@ export function ApiStatus() {
         "inline-flex items-center gap-2 rounded-full border bg-card/60 px-3 py-1 text-xs",
         tone,
       )}
-      title={API_BASE}
+      title={API_BASE || "same origin (Vite /api → FastAPI in dev)"}
     >
       <Icon className={cn("h-3.5 w-3.5", state === "loading" && "animate-spin")} />
       <span className="font-medium">{label}</span>
       <span className="hidden font-mono text-[0.65rem] text-muted-foreground md:inline">
-        {API_BASE}
+        {API_BASE || "/api (proxied)"}
       </span>
     </div>
   );

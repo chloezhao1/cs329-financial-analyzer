@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 from financial_signal_engine import analyze_records
 from run_pipeline import run_full_pipeline
 
-from backend.engine_factory import load_default_engine
+from backend.engine_factory import load_preferred_signal_engine
 from backend.lm_path import resolve_lm_csv
 from backend.safe_console import patch_print_for_console
 from backend.routers.signals import get_cache
@@ -121,7 +121,9 @@ def run_pipeline(req: RunPipelineRequest) -> RunPipelineResponse:
                 end_date=req.end_date,
             )
             if records:
-                engine = load_default_engine(resolve_lm_csv(PROJECT_ROOT))
+                engine = load_preferred_signal_engine(
+                    resolve_lm_csv(PROJECT_ROOT), PROJECT_ROOT
+                )
                 analyses = analyze_records(records, engine=engine)
             else:
                 analyses = []

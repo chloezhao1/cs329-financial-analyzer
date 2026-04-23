@@ -1,4 +1,13 @@
-const RAW_BASE = (import.meta.env.VITE_API_URL ?? "http://localhost:8000") as string;
+/**
+ * - In Vite **dev** (`npm run dev`), if `VITE_API_URL` is unset or empty, use
+ *   same-origin requests so `vite.config.ts` can proxy `/api` to the FastAPI
+ *   backend and avoid CORS.
+ * - In **production** builds, default to this machine's API (override via env).
+ */
+const envUrl = import.meta.env.VITE_API_URL;
+const trimmed = envUrl != null && String(envUrl).trim() !== "" ? String(envUrl).trim() : null;
+const RAW_BASE = (trimmed ??
+  (import.meta.env.DEV ? "" : "http://localhost:8000")) as string;
 
 export const API_BASE = RAW_BASE.replace(/\/+$/, "");
 

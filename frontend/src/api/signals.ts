@@ -4,6 +4,7 @@ import type {
   ComparisonRow,
   DataSource,
   HybridRescoreResponse,
+  LlmPureRescoreResponse,
 } from "@/types/api";
 
 import { apiRequest } from "./http";
@@ -32,6 +33,16 @@ export async function runHybridRescore(
   maxSentences = 120,
 ): Promise<HybridRescoreResponse> {
   return apiRequest<HybridRescoreResponse>("/api/signals/hybrid", {
+    method: "POST",
+    body: { label, max_sentences: maxSentences },
+  });
+}
+
+export async function runLlmPureRescore(
+  label: string,
+  maxSentences = 120,
+): Promise<LlmPureRescoreResponse> {
+  return apiRequest<LlmPureRescoreResponse>("/api/signals/llm-pure", {
     method: "POST",
     body: { label, max_sentences: maxSentences },
   });

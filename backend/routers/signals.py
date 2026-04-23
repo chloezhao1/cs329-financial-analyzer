@@ -28,7 +28,11 @@ from financial_signal_engine import (
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-from backend.engine_factory import DefaultV2Engine, load_default_engine
+from backend.engine_factory import (
+    DefaultV2Engine,
+    DefaultV3Engine,
+    load_preferred_signal_engine,
+)
 from backend.lm_path import resolve_lm_csv
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -46,14 +50,13 @@ class _AnalysesCache:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._analyses: list[dict] | None = None
-        self._engine: DefaultV2Engine | None = None
+        self._engine: DefaultV2Engine | DefaultV3Engine | None = None
 
-    def _engine_or_build(self) -> DefaultV2Engine:
-        """Build the signal engine once so every request uses the same LM
-        dictionary; the local resolver works regardless of CWD."""
+    def _engine_or_build(self) -> DefaultV2Engine | DefaultV3Engine:
+        """Build the preferred signal engine (V3, or V2 if V3 cannot load)."""
         if self._engine is None:
             lm_csv = resolve_lm_csv(PROJECT_ROOT)
-            self._engine = load_default_engine(lm_csv)
+            self._engine = load_preferred_signal_engine(lm_csv, PROJECT_ROOT)
         return self._engine
 
     def get(self, refresh: bool = False) -> list[dict]:
@@ -335,4 +338,140 @@ def hybrid_rescore(req: HybridRescoreRequest) -> HybridRescoreResponse:
         hybrid_positive_count=hybrid_positive_count,
         hybrid_negative_count=hybrid_negative_count,
         hybrid_neutral_count=hybrid_neutral_count,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Pure LLM (opt-in; requires ANTHROPIC_API_KEY) — no lexicon / signal engine mix
+# ---------------------------------------------------------------------------
+
+
+class LlmPureRescoreRequest(BaseModel):
+    label: str = Field(
+        ...,
+        description='Analysis label "{ticker} | {form_type} | {filing_date}".',
+    )
+    max_sentences: int = Field(
+        120,
+        ge=1,
+        le=2000,
+        description="Cap on sentences sent through Claude (API cost & latency).",
+    )
+
+
+class LlmPureSentence(BaseModel):
+    text: str
+    method: str
+    label: str
+    net_score: float
+    growth: float
+    risk: float
+    cost_pressure: float
+    reason: str | None = None
+
+
+class LlmPureRescoreResponse(BaseModel):
+    label: str
+    engine: str
+    engine_version: str
+    ticker: str
+    form_type: str
+    filing_date: str
+    total_sentences: int
+    scanned_sentences: int
+    sentences: list[LlmPureSentence]
+    llm_pure_growth_score: float
+    llm_pure_risk_score: float
+    llm_pure_cost_score: float
+    llm_pure_net_score: float
+    llm_positive_count: int
+    llm_negative_count: int
+    llm_neutral_count: int
+
+
+@router.post("/llm-pure", response_model=LlmPureRescoreResponse)
+def llm_pure_rescore(req: LlmPureRescoreRequest) -> LlmPureRescoreResponse:
+    """Score a document with the pure LLM engine only (Claude, every sentence)."""
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "ANTHROPIC_API_KEY is not set. Add it to the project-root "
+                ".env file and restart the API server."
+            ),
+        )
+
+    record = _find_record_for_label(req.label)
+    if record is None:
+        raise HTTPException(status_code=404, detail=f"Label not found: {req.label}")
+
+    sentences = (record.get("processed") or {}).get("sentences") or []
+    if not sentences:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Record has no preprocessed sentences. Re-run the pipeline "
+                "so preprocessing populates data/processed/."
+            ),
+        )
+
+    scanned = sentences[: req.max_sentences]
+
+    try:
+        from financial_signal_engine_LLMpure import PURE_LLM_VERSION, PureLLMSignalEngine
+    except ImportError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Could not import PureLLMSignalEngine: {e}.",
+        )
+
+    try:
+        engine = PureLLMSignalEngine()
+    except Exception as e:
+        logger.exception("Could not build PureLLMSignalEngine")
+        raise HTTPException(status_code=500, detail=f"Pure LLM engine init failed: {e}")
+
+    try:
+        results = engine.score_batch(scanned)
+    except Exception as e:
+        logger.exception("Pure LLM score_batch failed")
+        raise HTTPException(status_code=500, detail=f"Pure LLM scoring failed: {e}")
+
+    n = len(results) or 1
+    growth_sum = sum(float(r.get("growth", 0.0)) for r in results)
+    risk_sum = sum(float(r.get("risk", 0.0)) for r in results)
+    cost_sum = sum(float(r.get("cost_pressure", 0.0)) for r in results)
+    pos_c = sum(1 for r in results if r.get("label") == "positive")
+    neg_c = sum(1 for r in results if r.get("label") == "negative")
+    neu_c = sum(1 for r in results if r.get("label") == "neutral")
+
+    return LlmPureRescoreResponse(
+        label=req.label,
+        engine="PureLLMSignalEngine",
+        engine_version=PURE_LLM_VERSION,
+        ticker=record.get("ticker", "UNK"),
+        form_type=record.get("form_type", "UNKNOWN"),
+        filing_date=record.get("filing_date", "Unknown"),
+        total_sentences=len(sentences),
+        scanned_sentences=len(scanned),
+        sentences=[
+            LlmPureSentence(
+                text=r.get("text", ""),
+                method=r.get("method", "llm_pure"),
+                label=r.get("label", "neutral"),
+                net_score=float(r.get("net_score", 0.0)),
+                growth=float(r.get("growth", 0.0)),
+                risk=float(r.get("risk", 0.0)),
+                cost_pressure=float(r.get("cost_pressure", 0.0)),
+                reason=(r.get("reason") or r.get("llm_reason")),
+            )
+            for r in results
+        ],
+        llm_pure_growth_score=round(growth_sum / n, 4),
+        llm_pure_risk_score=round(risk_sum / n, 4),
+        llm_pure_cost_score=round(cost_sum / n, 4),
+        llm_pure_net_score=round((growth_sum - risk_sum) / n, 4),
+        llm_positive_count=pos_c,
+        llm_negative_count=neg_c,
+        llm_neutral_count=neu_c,
     )

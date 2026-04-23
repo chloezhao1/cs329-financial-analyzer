@@ -39,7 +39,7 @@ export function ComparePage() {
     enabled: activeLabels.length >= 1,
   });
 
-  const columns = useMemo<ColumnDef<ComparisonRow>[]>(
+  const rawColumns = useMemo<ColumnDef<ComparisonRow>[]>(
     () => [
       { accessorKey: "label", header: "Document" },
       {
@@ -56,6 +56,15 @@ export function ComparePage() {
         header: "Risk",
         cell: (ctx) => (
           <span className="font-mono text-[hsl(var(--risk))]">
+            {formatNumber(ctx.getValue<number>())}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "cost_pressure",
+        header: "Cost",
+        cell: (ctx) => (
+          <span className="font-mono text-[hsl(var(--cost))]">
             {formatNumber(ctx.getValue<number>())}
           </span>
         ),
@@ -79,6 +88,66 @@ export function ComparePage() {
         header: "Sentences",
         cell: (ctx) => (
           <span className="font-mono tabular-nums">{ctx.getValue<number>()}</span>
+        ),
+      },
+    ],
+    [],
+  );
+
+  const zColumns = useMemo<ColumnDef<ComparisonRow>[]>(
+    () => [
+      { accessorKey: "label", header: "Document" },
+      {
+        accessorKey: "z_growth",
+        header: "z (growth)",
+        cell: (ctx) => (
+          <span className="font-mono text-[hsl(var(--growth))]">
+            {formatSignedNumber(ctx.getValue<number>() ?? 0)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "z_risk",
+        header: "z (risk)",
+        cell: (ctx) => (
+          <span className="font-mono text-[hsl(var(--risk))]">
+            {formatSignedNumber(ctx.getValue<number>() ?? 0)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "z_net",
+        header: "z (net)",
+        cell: (ctx) => {
+          const v = ctx.getValue<number>() ?? 0;
+          return (
+            <span
+              className={`font-mono font-semibold ${v >= 0 ? "text-[hsl(var(--growth))]" : "text-[hsl(var(--risk))]"}`}
+            >
+              {formatSignedNumber(v)}
+            </span>
+          );
+        },
+      },
+      {
+        id: "z_ref",
+        header: "Baseline ref.",
+        cell: (ctx) => {
+          const row = ctx.row.original;
+          return (
+            <span className="text-xs text-muted-foreground">
+              {row.z_reference_label ?? row.z_reference ?? "—"}
+            </span>
+          );
+        },
+      },
+      {
+        accessorKey: "z_reliable",
+        header: "Reliable n",
+        cell: (ctx) => (
+          <span className="text-xs text-muted-foreground">
+            {ctx.getValue<boolean | null>() === true ? "yes" : "no"}
+          </span>
         ),
       },
     ],
@@ -199,14 +268,20 @@ export function ComparePage() {
       ) : (
         <Tabs defaultValue="chart">
           <TabsList>
-            <TabsTrigger value="chart">Chart</TabsTrigger>
-            <TabsTrigger value="table">Table</TabsTrigger>
+            <TabsTrigger value="chart">Engine chart (v3 raw)</TabsTrigger>
+            <TabsTrigger value="zchart">Z-score chart</TabsTrigger>
+            <TabsTrigger value="table">Raw table</TabsTrigger>
+            <TabsTrigger value="ztable">Z-score table</TabsTrigger>
           </TabsList>
 
           <TabsContent value="chart">
             <Card>
               <CardHeader>
-                <CardTitle>Raw signals</CardTitle>
+                <CardTitle>Engine scores (v3) — raw</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Per-document means from the main signal path (v3: lexicon + FinBERT
+                  on zero-hit lines). Aligned with the dashboard.
+                </p>
               </CardHeader>
               <CardContent>
                 <SignalBarChart rows={comparisonQuery.data ?? []} mode="raw" />
@@ -214,11 +289,36 @@ export function ComparePage() {
             </Card>
           </TabsContent>
 
+          <TabsContent value="zchart">
+            <Card>
+              <CardHeader>
+                <CardTitle>Sector / corpus z-scores (per metric)</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  One column per metric: z-growth, z-risk, and z-net
+                  (interpretable as above/below reference peers on each axis). Cost z is
+                  not defined in the current baseline. Reference labels show sector vs
+                  full-corpus fallback.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <SignalBarChart rows={comparisonQuery.data ?? []} mode="zscore" />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="table">
             <DataTable
-              columns={columns}
+              columns={rawColumns}
               data={comparisonQuery.data ?? []}
               emptyLabel="No comparison rows yet."
+            />
+          </TabsContent>
+
+          <TabsContent value="ztable">
+            <DataTable
+              columns={zColumns}
+              data={comparisonQuery.data ?? []}
+              emptyLabel="No z-score data — ensure baseline_stats.json exists and analyses include zscores."
             />
           </TabsContent>
         </Tabs>

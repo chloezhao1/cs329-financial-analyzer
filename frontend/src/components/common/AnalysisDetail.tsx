@@ -103,9 +103,23 @@ export function AnalysisDetail({ analysis, compact = false }: AnalysisDetailProp
     ? "grid grid-cols-2 gap-3"
     : "grid grid-cols-2 gap-4 xl:grid-cols-4";
 
+  const engineTitle =
+    analysis.method?.engine_id === "v3"
+      ? "Engine score (v3)"
+      : "Engine scores";
+
   return (
     <div className="space-y-6">
       <Hero analysis={analysis} compact={compact} />
+
+      <p className="text-sm font-medium text-foreground">
+        {engineTitle}
+        <span className="ml-2 text-xs font-normal text-muted-foreground">
+          {analysis.method?.signal_engine
+            ? `(${analysis.method.signal_engine})`
+            : "document-level means · separate from the LLM-only block below"}
+        </span>
+      </p>
 
       <div className={metricClass}>
         <MetricCard

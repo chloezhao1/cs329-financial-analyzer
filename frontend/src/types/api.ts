@@ -10,6 +10,13 @@ export type DataSource = "data/processed" | "pipeline_output" | "demo_data";
 export interface MethodInfo {
   type: string;
   engine_version: string;
+  /** e.g. "v2" | "v3" — which signal stack produced this analysis */
+  engine_id?: string;
+  /** Python class name for traceability */
+  signal_engine?: string;
+  classifier_path?: string;
+  use_llm_tier?: boolean;
+  legacy_v1_phrase_count_growth?: number;
   lm_words_loaded: number;
   lm_growth_words: number;
   lm_risk_words: number;
@@ -212,6 +219,38 @@ export interface HybridSentence {
   risk: number;
   cost_pressure: number;
   llm_reason: string | null;
+}
+
+export type LlmPureLabel = "positive" | "negative" | "neutral";
+
+export interface LlmPureSentence {
+  text: string;
+  method: string;
+  label: LlmPureLabel;
+  net_score: number;
+  growth: number;
+  risk: number;
+  cost_pressure: number;
+  reason: string | null;
+}
+
+export interface LlmPureRescoreResponse {
+  label: string;
+  engine: string;
+  engine_version: string;
+  ticker: string;
+  form_type: string;
+  filing_date: string;
+  total_sentences: number;
+  scanned_sentences: number;
+  sentences: LlmPureSentence[];
+  llm_pure_growth_score: number;
+  llm_pure_risk_score: number;
+  llm_pure_cost_score: number;
+  llm_pure_net_score: number;
+  llm_positive_count: number;
+  llm_negative_count: number;
+  llm_neutral_count: number;
 }
 
 export interface HybridRescoreResponse {

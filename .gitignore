@@ -9,3 +9,7 @@ venv/
 .DS_Store
 *.pkl
 data/lexicons/
+
+# TypeScript incremental / config emit (local caches)
+*.tsbuildinfo
+frontend/dist-tsconfig-node/

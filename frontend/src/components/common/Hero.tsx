@@ -13,6 +13,13 @@ export function Hero({ analysis, compact = false }: HeroProps) {
     net >= 0
       ? "Growth exceeds risk in this sample"
       : "Risk outweighs growth in this sample";
+  const engineId = analysis.method?.engine_id;
+  const enginePill =
+    engineId === "v3"
+      ? "Engine score (v3) — Lexicon + FinBERT (HybridSignalEngineV3)"
+      : engineId
+        ? `Engine id: ${engineId}`
+        : "Signal engine";
 
   return (
     <div
@@ -40,6 +47,12 @@ export function Hero({ analysis, compact = false }: HeroProps) {
         </h1>
         <p className="mt-2 text-sm text-white/85">
           {analysis.form_type} · {analysis.filing_date} · {analysis.source}
+        </p>
+        <p className="mt-1 text-xs text-white/70">
+          {enginePill}
+          {analysis.method?.engine_version != null
+            ? ` · v${analysis.method.engine_version}`
+            : null}
         </p>
         <span className="mt-4 inline-flex items-center rounded-full border border-white/20 bg-white/15 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
           {pillLabel}
